@@ -1,6 +1,6 @@
 # MNIST Digit Classifier
 
-A simple neural network built with **TensorFlow/Keras** to classify handwritten digits (0-9) from the [MNIST dataset]([http://yann.lecun.com/exdb/mnist/](https://keras.io/api/datasets/mnist/]).
+A simple neural network built with **TensorFlow/Keras** to classify handwritten digits (0-9) from the [MNIST dataset](http://yann.lecun.com/exdb/mnist/).
 
 ## Demo
 
