@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MNIST Digit Predictor</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap"
+        rel="stylesheet">
+    <style>
+        :root {
+            --bg-primary: #0a0a1a;
+            --bg-card: #16163a;
+            --accent-primary: #6c5ce7;
+            --accent-secondary: #a29bfe;
+            --accent-glow: rgba(108, 92, 231, 0.3);
+            --text-primary: #f0f0ff;
+            --text-secondary: #8888aa;
+            --success: #00cec9;
+            --danger: #ff6b6b;
+            --border-color: rgba(108, 92, 231, 0.2);
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+
+        body::before {
+            content: '';
+            position: fixed;
+            inset: 0;
+            background:
+                radial-gradient(ellipse at 20% 50%, rgba(108, 92, 231, 0.08) 0%, transparent 50%),
+                radial-gradient(ellipse at 80% 50%, rgba(0, 206, 201, 0.06) 0%, transparent 50%);
+            pointer-events: none;
+        }
+
+        .page {
+            position: relative;
+            z-index: 1;
+            width: 100%;
+            max-width: 1100px;
+            padding: 16px 24px;
+        }
+
+        /* Header row */
+        .header-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 14px;
+        }
+
+        .header-row h1 {
+            font-size: 1.6rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 5px 14px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 500;
+            transition: all 0.3s ease;
+        }
+
+        .status-badge.loading {
+            background: rgba(255, 107, 107, 0.1);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+            color: var(--danger);
+        }
+
+        .status-badge.ready {
+            background: rgba(0, 206, 201, 0.1);
+            border: 1px solid rgba(0, 206, 201, 0.3);
+            color: var(--success);
+        }
+
+        .status-dot {
+            width: 7px;
+            height: 7px;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+
+        .status-badge.loading .status-dot {
+            background: var(--danger);
+        }
+
+        .status-badge.ready .status-dot {
+            background: var(--success);
+        }
+
+        @keyframes pulse {
+
+            0%,
+            100% {
+                opacity: 1
+            }
+
+            50% {
+                opacity: 0.3
+            }
+        }
+
+        /* Two-column card */
+        .card {
+            background: var(--bg-card);
+            border: 1px solid var(--border-color);
+            border-radius: 18px;
+            padding: 24px;
+            display: flex;
+            gap: 28px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+        }
+
+        /* Left: canvas + controls */
+        .left-col {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .canvas-label {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+            font-weight: 600;
+        }
+
+        .canvas-wrapper {
+            border-radius: 14px;
+            overflow: hidden;
+            box-shadow: 0 0 24px var(--accent-glow), inset 0 0 16px rgba(0, 0, 0, 0.4);
+            border: 2px solid var(--border-color);
+            transition: border-color 0.3s, box-shadow 0.3s;
+        }
+
+        .canvas-wrapper:hover,
+        .canvas-wrapper.drawing {
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 36px var(--accent-glow), inset 0 0 16px rgba(0, 0, 0, 0.4);
+        }
+
+        canvas {
+            display: block;
+            cursor: crosshair;
+            background: #000;
+        }
+
+        .controls-row {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .brush-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 100px;
+            height: 3px;
+            border-radius: 2px;
+            background: linear-gradient(to right, var(--accent-primary), var(--accent-secondary));
+            outline: none;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            background: var(--text-primary);
+            cursor: pointer;
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+
+        .btn-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 12px;
+        }
+
+        .btn {
+            padding: 9px 22px;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.82rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn:active {
+            transform: scale(0.97);
+        }
+
+        .btn-predict {
+            background: linear-gradient(135deg, var(--accent-primary), #8b5cf6);
+            color: #fff;
+            box-shadow: 0 3px 12px rgba(108, 92, 231, 0.4);
+        }
+
+        .btn-predict:hover {
+            box-shadow: 0 5px 20px rgba(108, 92, 231, 0.6);
+            transform: translateY(-1px);
+        }
+
+        .btn-predict:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-clear {
+            background: rgba(255, 107, 107, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(255, 107, 107, 0.3);
+        }
+
+        .btn-clear:hover {
+            background: rgba(255, 107, 107, 0.2);
+        }
+
+        /* Right: results */
+        .right-col {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            min-width: 0;
+        }
+
+        .result-section {
+            text-align: center;
+        }
+
+        .result-title {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: var(--text-secondary);
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+
+        .prediction-display {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 14px;
+            margin-bottom: 16px;
+        }
+
+        .predicted-digit {
+            font-size: 4.5rem;
+            font-weight: 900;
+            background: linear-gradient(135deg, var(--accent-secondary), var(--success));
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            line-height: 1;
+            min-width: 70px;
+        }
+
+        .confidence-pct {
+            font-size: 1.3rem;
+            font-weight: 700;
+            color: var(--success);
+        }
+
+        .confidence-label {
+            font-size: 0.6rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .bars-container {
+            display: flex;
+            gap: 5px;
+            align-items: flex-end;
+            justify-content: center;
+            height: 100px;
+            padding: 0 8px;
+        }
+
+        .bar-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 3px;
+            flex: 1;
+        }
+
+        .bar {
+            width: 100%;
+            max-width: 36px;
+            min-height: 3px;
+            border-radius: 3px 3px 0 0;
+            background: linear-gradient(to top, var(--accent-primary), var(--accent-secondary));
+            transition: height 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+            opacity: 0.4;
+        }
+
+        .bar.highlight {
+            opacity: 1;
+            background: linear-gradient(to top, var(--success), #55efc4);
+            box-shadow: 0 0 10px rgba(0, 206, 201, 0.4);
+        }
+
+        .bar-label {
+            font-size: 0.65rem;
+            color: var(--text-secondary);
+            font-weight: 600;
+        }
+
+        .bar-label.highlight {
+            color: var(--success);
+        }
+
+        .placeholder-text {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 300;
+            padding: 30px 0;
+        }
+
+        .preview-section {
+            text-align: center;
+            margin-top: 14px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+
+        .preview-section .canvas-label {
+            margin-bottom: 6px;
+        }
+
+        .preview-canvas-wrapper {
+            display: inline-block;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            overflow: hidden;
+            image-rendering: pixelated;
+        }
+
+        /* Footer instructions */
+        .footer-info {
+            text-align: center;
+            margin-top: 12px;
+            color: var(--text-secondary);
+            font-size: 0.7rem;
+        }
+
+        .footer-info code {
+            background: rgba(108, 92, 231, 0.15);
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 0.68rem;
+            color: var(--accent-secondary);
+        }
+
+        .spinner {
+            display: inline-block;
+            width: 16px;
+            height: 16px;
+            border: 2px solid rgba(255, 255, 255, 0.2);
+            border-top-color: #fff;
+            border-radius: 50%;
+            animation: spin 0.6s linear infinite;
+            margin-right: 6px;
+            vertical-align: middle;
+        }
+
+        @keyframes spin {
+            to {
+                transform: rotate(360deg);
+            }
+        }
+
+        @media (max-width: 700px) {
+            .card {
+                flex-direction: column;
+            }
+
+            canvas {
+                width: 240px;
+                height: 240px;
+            }
+        }
+    </style>
+</head>
+
+<body>
+    <div class="page">
+        <div class="header-row">
+            <h1>MNIST Digit Predictor</h1>
+            <div id="statusBadge" class="status-badge loading">
+                <span class="status-dot"></span>
+                <span id="statusText">Waiting for server...</span>
+            </div>
+        </div>
+
+        <div class="card">
+            <!-- Left column: drawing canvas -->
+            <div class="left-col">
+                <div class="canvas-label">Draw Here</div>
+                <div class="canvas-wrapper" id="canvasWrapper">
+                    <canvas id="drawCanvas" width="350" height="350"></canvas>
+                </div>
+                <div class="controls-row">
+                    <span class="brush-label">Brush</span>
+                    <input type="range" id="brushSize" min="10" max="32" value="18">
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-predict" id="predictBtn" onclick="predict()" disabled>Predict</button>
+                    <button class="btn btn-clear" onclick="clearCanvas()">Clear</button>
+                </div>
+            </div>
+
+            <!-- Right column: prediction results -->
+            <div class="right-col">
+                <div class="result-section" id="resultSection">
+                    <div class="placeholder-text">Draw a digit (0–9) and click Predict</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="footer-info">
+            Run <code>python server.py</code> then visit <code>http://localhost:5757</code> — runs entirely on your
+            machine
+        </div>
+    </div>
+
+    <script>
+        const canvas = document.getElementById('drawCanvas');
+        const ctx = canvas.getContext('2d');
+        const wrapper = document.getElementById('canvasWrapper');
+        let drawing = false, lastX = 0, lastY = 0;
+
+        function clearCanvas() {
+            ctx.fillStyle = '#000';
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            document.getElementById('resultSection').innerHTML =
+                '<div class="placeholder-text">Draw a digit (0–9) and click Predict</div>';
+        }
+        clearCanvas();
+
+        canvas.addEventListener('mousedown', (e) => {
+            drawing = true; wrapper.classList.add('drawing');
+            const r = canvas.getBoundingClientRect();
+            lastX = (e.clientX - r.left) * (canvas.width / r.width);
+            lastY = (e.clientY - r.top) * (canvas.height / r.height);
+        });
+
+        canvas.addEventListener('mousemove', (e) => {
+            if (!drawing) return;
+            const r = canvas.getBoundingClientRect();
+            const x = (e.clientX - r.left) * (canvas.width / r.width);
+            const y = (e.clientY - r.top) * (canvas.height / r.height);
+            drawLine(lastX, lastY, x, y); lastX = x; lastY = y;
+        });
+
+        canvas.addEventListener('mouseup', () => { drawing = false; wrapper.classList.remove('drawing'); });
+        canvas.addEventListener('mouseleave', () => { drawing = false; wrapper.classList.remove('drawing'); });
+
+        canvas.addEventListener('touchstart', (e) => {
+            e.preventDefault(); drawing = true; wrapper.classList.add('drawing');
+            const r = canvas.getBoundingClientRect(); const t = e.touches[0];
+            lastX = (t.clientX - r.left) * (canvas.width / r.width);
+            lastY = (t.clientY - r.top) * (canvas.height / r.height);
+        });
+
+        canvas.addEventListener('touchmove', (e) => {
+            e.preventDefault(); if (!drawing) return;
+            const r = canvas.getBoundingClientRect(); const t = e.touches[0];
+            const x = (t.clientX - r.left) * (canvas.width / r.width);
+            const y = (t.clientY - r.top) * (canvas.height / r.height);
+            drawLine(lastX, lastY, x, y); lastX = x; lastY = y;
+        });
+
+        canvas.addEventListener('touchend', () => { drawing = false; wrapper.classList.remove('drawing'); });
+
+        function drawLine(x1, y1, x2, y2) {
+            const bs = document.getElementById('brushSize').value;
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = bs;
+            ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        }
+
+        const SERVER = 'http://localhost:5757';
+        let serverReady = false;
+
+        async function checkServer() {
+            try {
+                const res = await fetch(SERVER + '/health');
+                if (res.ok) {
+                    serverReady = true;
+                    document.getElementById('statusBadge').className = 'status-badge ready';
+                    document.getElementById('statusText').textContent = 'Model loaded & ready';
+                    document.getElementById('predictBtn').disabled = false;
+                    return;
+                }
+            } catch (e) { }
+            setTimeout(checkServer, 2000);
+        }
+        checkServer();
+
+        async function predict() {
+            if (!serverReady) return;
+            const btn = document.getElementById('predictBtn');
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span>Predicting...';
+            try {
+                const dataURL = canvas.toDataURL('image/png');
+                const res = await fetch(SERVER + '/predict', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ image: dataURL })
+                });
+                const data = await res.json();
+                showResult(data);
+            } catch (e) {
+                document.getElementById('resultSection').innerHTML =
+                    '<div class="placeholder-text" style="color:var(--danger)">Error: Could not reach the server</div>';
+            }
+            btn.disabled = false; btn.innerHTML = 'Predict';
+        }
+
+        function showResult(data) {
+            const predicted = data.prediction;
+            const probs = data.probabilities;
+            const confidence = (probs[predicted] * 100).toFixed(1);
+            const maxProb = Math.max(...probs);
+            let bars = '';
+            for (let i = 0; i < 10; i++) {
+                const h = (probs[i] / maxProb) * 100;
+                const hl = i === predicted;
+                bars += `<div class="bar-item">
+                    <div class="bar ${hl ? 'highlight' : ''}" style="height:${Math.max(h, 3)}%"></div>
+                    <span class="bar-label ${hl ? 'highlight' : ''}">${i}</span></div>`;
+            }
+            document.getElementById('resultSection').innerHTML = `
+                <div class="result-title">Prediction</div>
+                <div class="prediction-display">
+                    <div class="predicted-digit">${predicted}</div>
+                    <div><div class="confidence-pct">${confidence}%</div>
+                    <div class="confidence-label">confidence</div></div>
+                </div>
+                <div class="bars-container">${bars}</div>
+                <div class="preview-section">
+                    <div class="canvas-label">Model Input (28×28)</div>
+                    <div class="preview-canvas-wrapper">
+                        <img src="data:image/png;base64,${data.processed_image}"
+                             width="70" height="70" style="image-rendering:pixelated">
+                    </div>
+                </div>`;
+        }
+    </script>
+</body>
+
+</html>
